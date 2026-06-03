@@ -13,7 +13,9 @@ import tempfile
 import zipfile
 from typing import Optional
 
-import carb
+# NOTE: ``carb``/``omni``/``pxr`` are imported lazily inside ``add_usd_to_stage``
+# so the download+unzip half of this module stays pure-stdlib and testable
+# outside Isaac Sim (see scripts/smoke_test.py).
 
 _USD_EXTS = (".usd", ".usda", ".usdc", ".usdz")
 
@@ -54,6 +56,7 @@ def _find_usd(root: str) -> Optional[str]:
 
 def add_usd_to_stage(usd_path: str, label: str = "RigydAsset") -> str:
     """Reference ``usd_path`` onto the current stage under /World; return prim path."""
+    import carb
     import omni.usd
     from pxr import Sdf, UsdGeom
 
