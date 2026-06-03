@@ -1,4 +1,4 @@
-# isaac-rigyd-ext
+# rigyd-isaac-sim
 
 An **NVIDIA Isaac Sim / Omniverse Kit extension** that brings the
 [Rigyd](https://rigyd.com) SimReady conversion pipeline into the simulator.
