@@ -1,0 +1,30 @@
+[package]
+version = "0.1.0"
+title = "Rigyd SimReady Importer"
+description = "Convert any 3D model, text prompt, or image into a physics-enabled SimReady USD asset with Rigyd and drop it straight onto the stage."
+authors = ["Rigyd <hello@rigyd.com>"]
+repository = "https://github.com/rigyd/isaac-rigyd-ext"
+keywords = ["rigyd", "simready", "importer", "usd", "robotics", "physics", "isaac"]
+category = "Simulation"
+readme = "docs/README.md"
+changelog = "docs/CHANGELOG.md"
+# icon = "data/icon.png"            # TODO: add branded art before registry publish (M5)
+# preview_image = "data/preview.png"
+# Community Registry: the published extension name (the parent folder, "rigyd.simready")
+# must NOT start with "omni". See https://docs.omniverse.nvidia.com/kit/docs/kit-manual/latest/guide/publishing_exts.html
+
+[dependencies]
+"omni.kit.uiapp" = {}
+"omni.ui" = {}
+"omni.usd" = {}
+"omni.client" = {}
+"omni.kit.menu.utils" = {}
+"omni.kit.notification_manager" = {}
+"omni.kit.window.filepicker" = {}
+
+[[python.module]]
+name = "rigyd.simready"
+
+[settings]
+# Defaults; the API key is set by the user at runtime and persisted under /persistent.
+exts."rigyd.simready".base_url = "https://api.rigyd.com/api"
