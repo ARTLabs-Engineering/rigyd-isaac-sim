@@ -14,3 +14,7 @@ dist/
 # Local runtime / cache
 *.log
 .rigyd_cache/
+
+# Secrets — never commit
+.env
+.env.*
