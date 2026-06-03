@@ -106,16 +106,25 @@ class RigydClient:
 
     @staticmethod
     def _extract_error(err: "urllib.error.HTTPError") -> str:
+        """Pull a human message from either error shape the API returns:
+        Strapi's ``{error: {message}}`` (object) or the controller's
+        ``{error: "..."}`` (string)."""
         try:
             payload = json.loads(err.read().decode("utf-8"))
-            return (
-                payload.get("error")
-                or (payload.get("data") or {}).get("error")
-                or (payload.get("error") or {}).get("message")
-                or f"HTTP {err.code}"
-            ) if isinstance(payload, dict) else f"HTTP {err.code}"
         except Exception:
             return f"HTTP {err.code} {err.reason}"
+        if isinstance(payload, dict):
+            error = payload.get("error")
+            if isinstance(error, dict):
+                return error.get("message") or error.get("name") or f"HTTP {err.code}"
+            if isinstance(error, str):
+                return error
+            data_error = (payload.get("data") or {}).get("error")
+            if isinstance(data_error, str):
+                return data_error
+            if isinstance(payload.get("message"), str):
+                return payload["message"]
+        return f"HTTP {err.code}"
 
     def _post_json(self, path: str, payload: Dict[str, Any]) -> Any:
         return self._request(
