@@ -25,6 +25,12 @@ from typing import Any, Dict, List, Optional
 _TERMINAL_OK = "completed"
 _TERMINAL_FAIL = "failed"
 
+# Identifies traffic from this extension so the API can attribute usage
+# (vs. terminal/other clients). Bump CLIENT_VERSION with the extension version.
+CLIENT_NAME = "rigyd-isaac-sim"
+CLIENT_VERSION = "1.0.0"
+CLIENT_TAG = "isaac-sim"
+
 
 class RigydError(Exception):
     """API/transport error with an optional HTTP status code."""
@@ -85,7 +91,11 @@ class RigydClient:
             raise RigydError("No API key configured. Add your rgyd_live_… key first.")
 
         url = f"{self.base_url}{path}"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": f"{CLIENT_NAME}/{CLIENT_VERSION}",
+            "X-Rigyd-Client": CLIENT_TAG,
+        }
         if content_type:
             headers["Content-Type"] = content_type
         if accept_json:
