@@ -47,9 +47,9 @@ exts/rigyd.simready/
 
 ## Status
 
-Early — see `PLAN.md` for the milestone roadmap (M0 scaffold → M5 Community
-Registry). Text and 3D-file flows are implemented; image/simulate/history and
-registry publishing are in progress.
+**v1.0.0** — validated end-to-end on NVIDIA Isaac Sim (textures + SimReady
+physics intact). All three input flows (Text / Images / 3D file) are
+implemented. See `PLAN.md` for the roadmap.
 
 ## License
 

@@ -1,5 +1,5 @@
 [package]
-version = "0.1.0"
+version = "1.0.0"
 title = "Rigyd SimReady Importer"
 description = "Convert any 3D model, text prompt, or image into a physics-enabled SimReady USD asset with Rigyd and drop it straight onto the stage."
 authors = ["Rigyd <hello@rigyd.com>"]
