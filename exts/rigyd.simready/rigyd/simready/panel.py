@@ -19,23 +19,27 @@ from .api_client import RigydClient, RigydError
 _POLL_INTERVAL_S = 2.0
 _POLL_TIMEOUT_S = 20 * 60  # 20 minutes
 _TERMINAL = ("completed", "failed")
+MAX_IMAGES = 4
 
 
 class RigydWindow(ui.Window):
     def __init__(self, title: str, **kwargs):
         super().__init__(title, **kwargs)
         self._busy = False
-        self._status_model = ui.SimpleStringModel("Ready.")
         self._key_model = ui.SimpleStringModel(settings.get_api_key())
         self._prompt_model = ui.SimpleStringModel("")
         self._file_model = ui.SimpleStringModel("")
         self._tris_model = ui.SimpleStringModel("")
+        self._image_paths: list = []
         # Widgets assigned in _build(); referenced from async callbacks.
         self._account_label = None
+        self._status_label = None
         self._progress_frame = None
         self._bar_fill = None
         self._bar_rest = None
         self._pct_label = None
+        self._thumbs = None
+        self._img_count_label = None
         self.frame.set_build_fn(self._build)
 
     # -- UI ----------------------------------------------------------------
@@ -64,6 +68,20 @@ class RigydWindow(ui.Window):
                     ui.Button("Generate & load",
                               clicked_fn=lambda: self._run(self._generate_prompt()), height=28)
 
+            with ui.CollapsableFrame("Images to SimReady (3 credits)", collapsed=True):
+                with ui.VStack(spacing=4):
+                    ui.Label("1 image (single view) or 4 images (front, right, "
+                             "back, left).", word_wrap=True,
+                             style={"color": 0xFF9AA0A6})
+                    self._thumbs = ui.HStack(spacing=4, height=60)
+                    with ui.HStack(spacing=6, height=24):
+                        ui.Button("Add image…", clicked_fn=self._on_add_image)
+                        ui.Button("Clear", width=70, clicked_fn=self._on_clear_images)
+                        self._img_count_label = ui.Label("0/4", width=40,
+                                                         alignment=ui.Alignment.CENTER)
+                    ui.Button("Generate & load",
+                              clicked_fn=lambda: self._run(self._generate_images()), height=28)
+
             with ui.CollapsableFrame("3D file to SimReady (1 credit)", collapsed=True):
                 with ui.VStack(spacing=4):
                     with ui.HStack(spacing=6, height=24):
@@ -78,7 +96,7 @@ class RigydWindow(ui.Window):
 
             ui.Separator(height=2)
             self._build_progress()
-            ui.StringField(self._status_model, read_only=True, height=22)
+            self._build_status_bar()
 
         # Show who's signed in / credit balance if a key is already saved.
         if settings.get_api_key():
@@ -98,12 +116,25 @@ class RigydWindow(ui.Window):
             self._pct_label = ui.Label("0%", alignment=ui.Alignment.CENTER,
                                        style={"color": 0xFFFFFFFF})
 
+    def _build_status_bar(self):
+        # A non-editable, inset bar — reads as status, not a text input.
+        with ui.ZStack(height=24):
+            ui.Rectangle(style={"background_color": 0xFF1E1E1E,
+                                "border_radius": 3, "border_width": 0})
+            with ui.HStack():
+                ui.Spacer(width=8)
+                self._status_label = ui.Label(
+                    "Ready.", alignment=ui.Alignment.LEFT_CENTER,
+                    style={"color": 0xFFBBBBBB})
+                ui.Spacer(width=8)
+
     # -- helpers -----------------------------------------------------------
     def _client(self) -> RigydClient:
         return RigydClient(settings.get_base_url(), settings.get_api_key())
 
     def _set_status(self, text: str):
-        self._status_model.set_value(text)
+        if self._status_label is not None:
+            self._status_label.text = text
 
     def _set_progress(self, frac: float):
         frac = max(0.0, min(1.0, frac))
@@ -162,6 +193,51 @@ class RigydWindow(ui.Window):
         except Exception as exc:  # noqa: BLE001 — fall back to manual path entry
             self._set_status(f"File picker unavailable ({exc}); type the path manually.")
 
+    # -- images ------------------------------------------------------------
+    _IMG_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+
+    def _on_add_image(self):
+        if len(self._image_paths) >= MAX_IMAGES:
+            self._set_status(f"Max {MAX_IMAGES} images.")
+            return
+        try:
+            from omni.kit.window.filepicker import FilePickerDialog
+
+            def _picked(filename: str, dirname: str):
+                path = os.path.join(dirname or "", filename or "")
+                if filename and os.path.splitext(path)[1].lower() in self._IMG_EXTS:
+                    if path not in self._image_paths and len(self._image_paths) < MAX_IMAGES:
+                        self._image_paths.append(path)
+                        self._rebuild_thumbs()
+                        self._set_status(f"{len(self._image_paths)} image(s) selected.")
+                elif filename:
+                    self._set_status(f"Unsupported image: {os.path.basename(path)}")
+                dialog.hide()
+
+            dialog = FilePickerDialog(
+                "Select an image", apply_button_label="Add", click_apply_handler=_picked,
+            )
+            dialog.show()
+        except Exception as exc:  # noqa: BLE001
+            self._set_status(f"File picker unavailable ({exc}).")
+
+    def _on_clear_images(self):
+        self._image_paths.clear()
+        self._rebuild_thumbs()
+        self._set_status("Cleared images.")
+
+    def _rebuild_thumbs(self):
+        if self._thumbs is None:
+            return
+        self._thumbs.clear()
+        with self._thumbs:
+            for path in self._image_paths:
+                ui.Image(path, width=56, height=56,
+                         fill_policy=ui.FillPolicy.PRESERVE_ASPECT_FIT)
+            ui.Spacer()
+        if self._img_count_label is not None:
+            self._img_count_label.text = f"{len(self._image_paths)}/{MAX_IMAGES}"
+
     def _run(self, coro: Awaitable):
         if self._busy:
             self._set_status("Busy — wait for the current job to finish.")
@@ -213,6 +289,22 @@ class RigydWindow(ui.Window):
         self._set_status(f"Uploading {os.path.basename(path)}…")
         job = await self._call(client.create_from_file, path, target)
         await self._track_and_load(client, job, label=os.path.basename(path))
+
+    async def _generate_images(self):
+        n = len(self._image_paths)
+        if n == 0:
+            self._set_status("Add at least one image first.")
+            return
+        if n not in (1, MAX_IMAGES):
+            self._set_status(
+                f"Provide exactly 1 image, or {MAX_IMAGES} (front, right, back, left)."
+            )
+            return
+        client = self._client()
+        self._set_status(f"Uploading {n} image(s)…")
+        job = await self._call(client.generate_from_images, list(self._image_paths))
+        label = os.path.splitext(os.path.basename(self._image_paths[0]))[0]
+        await self._track_and_load(client, job, label=label)
 
     # -- poll + load -------------------------------------------------------
     async def _track_and_load(self, client: RigydClient, job: dict, label: str):
