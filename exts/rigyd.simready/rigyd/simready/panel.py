@@ -36,7 +36,7 @@ class RigydWindow(ui.Window):
     # -- UI ----------------------------------------------------------------
     def _build(self):
         with ui.VStack(spacing=8, height=0):
-            ui.Label("Rigyd → SimReady", height=22,
+            ui.Label("Rigyd  |  SimReady", height=22,
                      style={"font_size": 18, "color": 0xFFCCAA33})
 
             with ui.CollapsableFrame("API Key", collapsed=False):
@@ -47,14 +47,14 @@ class RigydWindow(ui.Window):
                         ui.Button("Test connection",
                                   clicked_fn=lambda: self._run(self._test_connection()))
 
-            with ui.CollapsableFrame("Text → SimReady (2 credits)", collapsed=False):
+            with ui.CollapsableFrame("Text to SimReady (2 credits)", collapsed=False):
                 with ui.VStack(spacing=4):
                     ui.StringField(self._prompt_model, height=24,
                                    placeholder="e.g. a wooden dining chair")
                     ui.Button("Generate & load",
                               clicked_fn=lambda: self._run(self._generate_prompt()), height=28)
 
-            with ui.CollapsableFrame("3D file → SimReady (1 credit)", collapsed=True):
+            with ui.CollapsableFrame("3D file to SimReady (1 credit)", collapsed=True):
                 with ui.VStack(spacing=4):
                     with ui.HStack(spacing=6, height=24):
                         ui.StringField(self._file_model,
@@ -188,7 +188,7 @@ class RigydWindow(ui.Window):
             stage = last.get("stage") or status
             # Reserve the last 10% for download/load.
             self._set_progress(0.9 * (float(progress) / 100.0))
-            self._set_status(f"{status} · {stage} · {progress}%")
+            self._set_status(f"{status} - {stage} - {progress}%")
             if status in _TERMINAL:
                 return last
             await asyncio.sleep(_POLL_INTERVAL_S)
