@@ -75,7 +75,7 @@ class RigydWindow(ui.Window):
                              style={"color": 0xFF9AA0A6})
                     self._thumbs = ui.HStack(spacing=4, height=60)
                     with ui.HStack(spacing=6, height=24):
-                        ui.Button("Add image…", clicked_fn=self._on_add_image)
+                        ui.Button("Add image...", clicked_fn=self._on_add_image)
                         ui.Button("Clear", width=70, clicked_fn=self._on_clear_images)
                         self._img_count_label = ui.Label("0/4", width=40,
                                                          alignment=ui.Alignment.CENTER)
@@ -87,10 +87,10 @@ class RigydWindow(ui.Window):
                     with ui.HStack(spacing=6, height=24):
                         ui.StringField(self._file_model,
                                        placeholder=".glb/.gltf/.fbx/.obj/.stl/.ply/.usd*")
-                        ui.Button("Browse…", width=80, clicked_fn=self._on_browse)
+                        ui.Button("Browse...", width=80, clicked_fn=self._on_browse)
                     with ui.HStack(spacing=6, height=24):
                         ui.Label("Target triangles (optional):", width=160)
-                        ui.StringField(self._tris_model, placeholder="1000 – 1000000")
+                        ui.StringField(self._tris_model, placeholder="1000 - 1000000")
                     ui.Button("Convert & load",
                               clicked_fn=lambda: self._run(self._import_file()), height=28)
 
@@ -240,7 +240,7 @@ class RigydWindow(ui.Window):
 
     def _run(self, coro: Awaitable):
         if self._busy:
-            self._set_status("Busy — wait for the current job to finish.")
+            self._set_status("Busy - wait for the current job to finish.")
             return
         omni.kit.async_engine.run_coroutine(self._guarded(coro))
 
@@ -263,7 +263,7 @@ class RigydWindow(ui.Window):
 
     # -- flows -------------------------------------------------------------
     async def _test_connection(self):
-        self._set_status("Testing…")
+        self._set_status("Testing...")
         await self._call(self._client().pricing)  # raises if the key is bad
         await self._refresh_account()
         self._set_status("Connected.")
@@ -274,7 +274,7 @@ class RigydWindow(ui.Window):
             self._set_status("Enter a prompt first.")
             return
         client = self._client()
-        self._set_status("Submitting prompt…")
+        self._set_status("Submitting prompt...")
         job = await self._call(client.generate_from_prompt, prompt)
         await self._track_and_load(client, job, label=prompt[:40])
 
@@ -286,7 +286,7 @@ class RigydWindow(ui.Window):
         tris = self._tris_model.get_value_as_string().strip()
         target = int(tris) if tris.isdigit() else None
         client = self._client()
-        self._set_status(f"Uploading {os.path.basename(path)}…")
+        self._set_status(f"Uploading {os.path.basename(path)}...")
         job = await self._call(client.create_from_file, path, target)
         await self._track_and_load(client, job, label=os.path.basename(path))
 
@@ -301,7 +301,7 @@ class RigydWindow(ui.Window):
             )
             return
         client = self._client()
-        self._set_status(f"Uploading {n} image(s)…")
+        self._set_status(f"Uploading {n} image(s)...")
         job = await self._call(client.generate_from_images, list(self._image_paths))
         label = os.path.splitext(os.path.basename(self._image_paths[0]))[0]
         await self._track_and_load(client, job, label=label)
@@ -312,7 +312,7 @@ class RigydWindow(ui.Window):
         if not job_id:
             self._set_status(f"Unexpected response: {job}")
             return
-        self._set_status(f"Queued (job {job_id})…")
+        self._set_status(f"Queued (job {job_id})...")
 
         final = await self._poll(client, job_id)
         status = final.get("status")
@@ -320,7 +320,7 @@ class RigydWindow(ui.Window):
             self._set_status(f"Job {status}: {final.get('error') or 'no result'}")
             return
 
-        self._set_status("Downloading result…")
+        self._set_status("Downloading result...")
         zip_path = os.path.join(tempfile.gettempdir(), f"rigyd_{job_id}.zip")
         await self._call(client.download_result, job_id, zip_path, "usd")
 
