@@ -73,6 +73,8 @@ def main() -> int:
     ap.add_argument("--file", help="run the 3D-file pipeline first")
     ap.add_argument("--tris", type=int, default=None)
     ap.add_argument("--save", help="write the composed stage to this path")
+    ap.add_argument("--hold", action="store_true",
+                    help="keep the app + livestream running after load (Ctrl-C to exit)")
     args = ap.parse_args()
     if not (args.usd or args.prompt or args.file):
         raise SystemExit("Pass --usd, --prompt, or --file.")
@@ -105,6 +107,22 @@ def main() -> int:
         if args.save:
             stage.GetRootLayer().Export(args.save)
             print(f"Saved composed stage to {args.save}")
+
+        if args.hold:
+            # Select + frame the asset, then keep the app (and livestream) alive
+            # so you can actually orbit it in the /viewer tab.
+            omni.usd.get_context().get_selection().set_selected_prim_paths(
+                [prim_path], True
+            )
+            try:
+                import omni.kit.viewport.utility as vpu
+
+                vpu.frame_viewport_prims(vpu.get_active_viewport(), prims=[prim_path])
+            except Exception as exc:  # noqa: BLE001 — framing is best-effort
+                print(f"(could not auto-frame; press F in the viewport: {exc})")
+            print("Holding — view it in the /viewer tab. Ctrl-C here to exit.")
+            while app.is_running():
+                app.update()
         return 0
     finally:
         app.close()
