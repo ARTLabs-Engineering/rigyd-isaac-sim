@@ -136,6 +136,10 @@ class RigydClient:
     def pricing(self) -> Dict[str, Any]:
         return self._request("GET", "/conversions/pricing").get("data", {})
 
+    def me(self) -> Dict[str, Any]:
+        """{user: {username, email, …}, subscription: {credits_remaining, …}}."""
+        return self._request("GET", "/me").get("data", {})
+
     def create_from_file(
         self, file_path: str, target_triangle_count: Optional[int] = None
     ) -> Dict[str, Any]:

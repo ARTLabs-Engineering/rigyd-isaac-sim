@@ -26,18 +26,28 @@ class RigydWindow(ui.Window):
         super().__init__(title, **kwargs)
         self._busy = False
         self._status_model = ui.SimpleStringModel("Ready.")
-        self._progress_model = ui.SimpleFloatModel(0.0)
         self._key_model = ui.SimpleStringModel(settings.get_api_key())
         self._prompt_model = ui.SimpleStringModel("")
         self._file_model = ui.SimpleStringModel("")
         self._tris_model = ui.SimpleStringModel("")
+        # Widgets assigned in _build(); referenced from async callbacks.
+        self._account_label = None
+        self._progress_frame = None
+        self._bar_fill = None
+        self._bar_rest = None
+        self._pct_label = None
         self.frame.set_build_fn(self._build)
 
     # -- UI ----------------------------------------------------------------
     def _build(self):
         with ui.VStack(spacing=8, height=0):
-            ui.Label("Rigyd  |  SimReady", height=22,
-                     style={"font_size": 18, "color": 0xFFCCAA33})
+            with ui.HStack(height=22):
+                ui.Label("Rigyd  |  SimReady", width=0,
+                         style={"font_size": 18, "color": 0xFFCCAA33})
+                ui.Spacer()
+                self._account_label = ui.Label(
+                    "", alignment=ui.Alignment.RIGHT_CENTER, width=0,
+                    style={"color": 0xFF9AA0A6})
 
             with ui.CollapsableFrame("API Key", collapsed=False):
                 with ui.VStack(spacing=4):
@@ -67,9 +77,26 @@ class RigydWindow(ui.Window):
                               clicked_fn=lambda: self._run(self._import_file()), height=28)
 
             ui.Separator(height=2)
-            ui.ProgressBar(self._progress_model, height=18)
-            ui.Label("", height=0)
+            self._build_progress()
             ui.StringField(self._status_model, read_only=True, height=22)
+
+        # Show who's signed in / credit balance if a key is already saved.
+        if settings.get_api_key():
+            self._run(self._refresh_account())
+
+    def _build_progress(self):
+        # A custom bar so we control the label ("42%") and can hide it when idle
+        # — omni.ui.ProgressBar renders the raw float ("0.0000").
+        self._progress_frame = ui.ZStack(height=18, visible=False)
+        with self._progress_frame:
+            ui.Rectangle(style={"background_color": 0xFF2A2A2A, "border_radius": 3})
+            with ui.HStack():
+                self._bar_fill = ui.Rectangle(
+                    width=ui.Fraction(0.0001),
+                    style={"background_color": 0xFFCCAA33, "border_radius": 3})
+                self._bar_rest = ui.Spacer(width=ui.Fraction(1))
+            self._pct_label = ui.Label("0%", alignment=ui.Alignment.CENTER,
+                                       style={"color": 0xFFFFFFFF})
 
     # -- helpers -----------------------------------------------------------
     def _client(self) -> RigydClient:
@@ -79,11 +106,43 @@ class RigydWindow(ui.Window):
         self._status_model.set_value(text)
 
     def _set_progress(self, frac: float):
-        self._progress_model.set_value(max(0.0, min(1.0, frac)))
+        frac = max(0.0, min(1.0, frac))
+        if self._progress_frame is None:
+            return
+        self._progress_frame.visible = True
+        self._bar_fill.width = ui.Fraction(max(frac, 0.0001))
+        self._bar_rest.width = ui.Fraction(max(1.0 - frac, 0.0001))
+        self._pct_label.text = f"{int(round(frac * 100))}%"
+
+    def _hide_progress(self):
+        if self._progress_frame is not None:
+            self._progress_frame.visible = False
+
+    def _set_account(self, text: str):
+        if self._account_label is not None:
+            self._account_label.text = text
+
+    async def _refresh_account(self):
+        """Update the header with signed-in user + credit balance (best-effort)."""
+        try:
+            data = await self._call(self._client().me)
+        except RigydError:
+            # /me may still be JWT-only until the API change ships — fail quiet.
+            self._set_account("")
+            return
+        user = data.get("user") or {}
+        sub = data.get("subscription") or {}
+        name = user.get("email") or user.get("username") or ""
+        credits = sub.get("credits_remaining")
+        if name and credits is not None:
+            self._set_account(f"{name}   |   {credits} credits")
+        else:
+            self._set_account(name)
 
     def _on_save_key(self):
         settings.set_api_key(self._key_model.get_value_as_string())
         self._set_status("API key saved.")
+        self._run(self._refresh_account())
 
     def _on_browse(self):
         try:
@@ -111,7 +170,6 @@ class RigydWindow(ui.Window):
 
     async def _guarded(self, coro: Awaitable):
         self._busy = True
-        self._set_progress(0.0)
         try:
             await coro
         except RigydError as exc:
@@ -120,6 +178,7 @@ class RigydWindow(ui.Window):
             self._set_status(f"Unexpected error: {exc}")
         finally:
             self._busy = False
+            self._hide_progress()
 
     async def _call(self, fn: Callable, *args):
         """Run a blocking client call on the executor thread."""
@@ -129,9 +188,9 @@ class RigydWindow(ui.Window):
     # -- flows -------------------------------------------------------------
     async def _test_connection(self):
         self._set_status("Testing…")
-        client = self._client()
-        pricing = await self._call(client.pricing)
-        self._set_status(f"Connected. Pricing: {pricing}")
+        await self._call(self._client().pricing)  # raises if the key is bad
+        await self._refresh_account()
+        self._set_status("Connected.")
 
     async def _generate_prompt(self):
         prompt = self._prompt_model.get_value_as_string().strip()
@@ -177,6 +236,7 @@ class RigydWindow(ui.Window):
         prim_path = loader.add_usd_to_stage(usd_path, label or "RigydAsset")
         self._set_progress(1.0)
         self._set_status(f"Loaded at {prim_path}")
+        await self._refresh_account()  # a credit was spent — refresh the balance
 
     async def _poll(self, client: RigydClient, job_id: str) -> dict:
         elapsed = 0.0
