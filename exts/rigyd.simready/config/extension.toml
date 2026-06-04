@@ -8,8 +8,8 @@ keywords = ["rigyd", "simready", "importer", "usd", "robotics", "physics", "isaa
 category = "Simulation"
 readme = "docs/README.md"
 changelog = "docs/CHANGELOG.md"
-# icon = "data/icon.png"            # TODO: add branded art before registry publish (M5)
-# preview_image = "data/preview.png"
+icon = "data/icon.png"
+preview_image = "data/preview.png"
 # Community Registry: the published extension name (the parent folder, "rigyd.simready")
 # must NOT start with "omni". See https://docs.omniverse.nvidia.com/kit/docs/kit-manual/latest/guide/publishing_exts.html
 
